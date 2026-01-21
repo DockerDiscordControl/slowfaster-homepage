@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>slowfaster — Calm down to go faster</title>
+    <meta name="description" content="A biofeedback racing experience for Apple Watch. Your heart rate shapes the road ahead.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-cyan: rgb(0, 230, 255);
+            --neon-cyan-dim: rgba(0, 230, 255, 0.6);
+            --neon-cyan-glow: rgba(0, 230, 255, 0.3);
+            --neon-pink: rgb(255, 51, 153);
+            --bg-dark: #0a0a0f;
+            --bg-card: rgba(20, 20, 30, 0.8);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-muted: rgba(255, 255, 255, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Hero Section with Road Animation */
+        .hero {
+            height: 300vh;
+            position: relative;
+        }
+
+        .hero-sticky {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .road-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .road-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            padding: 2rem;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+
+        .hero-content.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(2.5rem, 8vw, 5rem);
+            font-weight: 500;
+            color: var(--neon-cyan);
+            text-shadow:
+                0 0 20px var(--neon-cyan-glow),
+                0 0 40px var(--neon-cyan-glow),
+                0 0 80px var(--neon-cyan-glow);
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .tagline {
+            font-size: clamp(1rem, 3vw, 1.5rem);
+            color: var(--text-secondary);
+            font-weight: 300;
+            margin-bottom: 0.5rem;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .scroll-hint svg {
+            width: 24px;
+            height: 24px;
+            stroke: var(--neon-cyan-dim);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        /* Main Content */
+        .content {
+            position: relative;
+            z-index: 20;
+            background: var(--bg-dark);
+        }
+
+        section {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 6rem 2rem;
+        }
+
+        .intro-section {
+            padding-top: 8rem;
+        }
+
+        h2 {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 600;
+            margin-bottom: 2rem;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 30px var(--neon-cyan-glow);
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+        }
+
+        .highlight {
+            color: var(--neon-cyan);
+            font-weight: 500;
+        }
+
+        .quote {
+            font-size: clamp(1.5rem, 4vw, 2rem);
+            font-weight: 300;
+            font-style: italic;
+            color: var(--text-primary);
+            text-align: center;
+            padding: 3rem 2rem;
+            border-left: 3px solid var(--neon-cyan);
+            background: linear-gradient(90deg, var(--neon-cyan-glow), transparent);
+            margin: 3rem 0;
+        }
+
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 230, 255, 0.1);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: border-color 0.3s ease, transform 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--neon-cyan-dim);
+            transform: translateY(-4px);
+        }
+
+        .card-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .card h3 {
+            color: var(--neon-cyan);
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .card p {
+            font-size: 0.95rem;
+            margin-bottom: 0;
+        }
+
+        /* Science Section */
+        .science-section {
+            background: linear-gradient(180deg, transparent, rgba(0, 230, 255, 0.02), transparent);
+        }
+
+        .study-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 230, 255, 0.15);
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .study-card h4 {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .study-card .journal {
+            color: var(--neon-cyan-dim);
+            font-size: 0.875rem;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.75rem;
+        }
+
+        .study-card p {
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+
+        .study-card a {
+            color: var(--neon-cyan);
+            text-decoration: none;
+            font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: opacity 0.2s;
+        }
+
+        .study-card a:hover {
+            opacity: 0.8;
+            text-decoration: underline;
+        }
+
+        /* How it Works */
+        .mechanism-list {
+            list-style: none;
+            margin: 2rem 0;
+        }
+
+        .mechanism-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background: rgba(0, 230, 255, 0.02);
+        }
+
+        .mechanism-list .icon {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 230, 255, 0.1);
+            border-radius: 8px;
+            color: var(--neon-cyan);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .mechanism-list .text h4 {
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .mechanism-list .text p {
+            margin-bottom: 0;
+            font-size: 0.95rem;
+        }
+
+        /* Platform Badge */
+        .platform-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 230, 255, 0.2);
+            border-radius: 50px;
+            margin: 2rem 0;
+        }
+
+        .platform-badge svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .platform-badge span {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 4rem 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        footer p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        footer a {
+            color: var(--neon-cyan-dim);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            section {
+                padding: 4rem 1.5rem;
+            }
+
+            .card-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .quote {
+                padding: 2rem 1.5rem;
+            }
+        }
+
+        /* Animations */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero with Road Animation -->
+    <section class="hero">
+        <div class="hero-sticky">
+            <canvas class="road-canvas" id="roadCanvas"></canvas>
+            <div class="hero-content" id="heroContent">
+                <h1 class="logo">slowfaster</h1>
+                <p class="tagline">Calm down to go faster.</p>
+            </div>
+            <div class="scroll-hint" id="scrollHint">
+                <span>Scroll to begin</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M19 12l-7 7-7-7"/>
+                </svg>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="content">
+        <section class="intro-section">
+            <div class="fade-in">
+                <h2>A biofeedback racing experience</h2>
+                <p>
+                    slowfaster is a minimalist Apple Watch experience where your inner state shapes the world around you.
+                    There are no controls. No high scores. No competition.
+                    <span class="highlight">The game doesn't respond to your actions — it responds to you.</span>
+                </p>
+
+                <div class="platform-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--neon-cyan)" stroke-width="1.5">
+                        <rect x="6" y="2" width="12" height="20" rx="2"/>
+                        <circle cx="12" cy="18" r="1"/>
+                    </svg>
+                    <span>Apple Watch · watchOS</span>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="quote fade-in">
+                "The quieter you become, the more you can hear."
+            </div>
+        </section>
+
+        <section>
+            <div class="fade-in">
+                <h2>How it works</h2>
+                <p>
+                    Your car drives automatically through an endless procedurally generated road.
+                    The twist? The road's difficulty is controlled by your <span class="highlight">heart rate delta</span> —
+                    the difference between your current heart rate and your personal resting rate.
+                </p>
+
+                <ul class="mechanism-list">
+                    <li>
+                        <div class="icon">Δ</div>
+                        <div class="text">
+                            <h4>Delta measurement</h4>
+                            <p>We calculate the difference between your current heart rate and your resting heart rate (derived from your sleep data).</p>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="icon">↗</div>
+                        <div class="text">
+                            <h4>Elevated state</h4>
+                            <p>When your heart rate is elevated, the road becomes winding with tight curves and frequent direction changes.</p>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="icon">→</div>
+                        <div class="text">
+                            <h4>Calm state</h4>
+                            <p>As you approach your resting rate, the road straightens out. Speed feels faster. Flow emerges.</p>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="icon">◎</div>
+                        <div class="text">
+                            <h4>No explicit goal</h4>
+                            <p>There's no score, no game over, no finish line. The reward is the state itself.</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <section>
+            <div class="fade-in">
+                <h2>Who it's for</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <div class="card-icon">🚇</div>
+                        <h3>Commuters</h3>
+                        <p>Quick sessions during your commute to reset between contexts.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon">💼</div>
+                        <h3>Pre-meeting calm</h3>
+                        <p>30 seconds before an important call to shift into a centered state.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon">🧠</div>
+                        <h3>Non-meditators</h3>
+                        <p>For those who find traditional meditation apps frustrating or ineffective.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon">⏱</div>
+                        <h3>Micro-breaks</h3>
+                        <p>10–60 second sessions that fit into the gaps of a busy day.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="science-section">
+            <div class="fade-in">
+                <h2>The science behind it</h2>
+                <p>
+                    slowfaster is built on decades of research in <span class="highlight">heart rate variability (HRV) biofeedback</span> —
+                    a scientifically validated approach for stress reduction and autonomic regulation.
+                </p>
+
+                <div class="study-card">
+                    <h4>Heart Rate Variability Biofeedback: How and Why Does It Work?</h4>
+                    <div class="journal">Frontiers in Psychology, 2014</div>
+                    <p>
+                        This comprehensive review demonstrates that HRV biofeedback produces improvements in
+                        depression, anxiety, and stress management. The mechanism involves stimulating the
+                        parasympathetic nervous system through rhythmic activity.
+                    </p>
+                    <a href="https://www.frontiersin.org/articles/10.3389/fpsyg.2014.00756/full" target="_blank" rel="noopener">
+                        Read the study →
+                    </a>
+                </div>
+
+                <div class="study-card">
+                    <h4>A Healthy Heart Is Not a Metronome</h4>
+                    <div class="journal">Integrative Physiological & Behavioral Science, 1998</div>
+                    <p>
+                        Landmark paper establishing that heart rate variability reflects the dynamic interplay
+                        between sympathetic and parasympathetic nervous systems. Higher variability indicates
+                        better stress resilience and emotional regulation capacity.
+                    </p>
+                    <a href="https://pubmed.ncbi.nlm.nih.gov/9737736/" target="_blank" rel="noopener">
+                        View on PubMed →
+                    </a>
+                </div>
+
+                <div class="study-card">
+                    <h4>The Effects of Biofeedback Training on Stress and Anxiety</h4>
+                    <div class="journal">Applied Psychophysiology and Biofeedback, 2020</div>
+                    <p>
+                        Meta-analysis of 58 studies showing significant effects of biofeedback interventions
+                        on reducing physiological and psychological symptoms of stress. Real-time feedback
+                        enhances awareness and voluntary control of autonomic functions.
+                    </p>
+                    <a href="https://link.springer.com/article/10.1007/s10484-020-09483-8" target="_blank" rel="noopener">
+                        Read on Springer →
+                    </a>
+                </div>
+
+                <div class="study-card">
+                    <h4>Resonance Frequency Biofeedback Training</h4>
+                    <div class="journal">Applied Psychophysiology and Biofeedback, 2013</div>
+                    <p>
+                        Research on how biofeedback at one's resonance frequency (typically around 6 breaths/minute)
+                        maximizes HRV amplitude and strengthens baroreflex function, leading to improved emotional
+                        regulation and stress resilience.
+                    </p>
+                    <a href="https://pubmed.ncbi.nlm.nih.gov/23334917/" target="_blank" rel="noopener">
+                        View on PubMed →
+                    </a>
+                </div>
+
+                <p style="margin-top: 2rem;">
+                    Unlike traditional biofeedback apps that display charts and numbers, slowfaster translates
+                    your physiological state into an intuitive visual metaphor. You don't need to understand
+                    the science — you just need to <span class="highlight">feel</span> the road straighten.
+                </p>
+            </div>
+        </section>
+
+        <section>
+            <div class="fade-in">
+                <h2>What it's not</h2>
+                <div class="card-grid">
+                    <div class="card">
+                        <h3>Not a meditation app</h3>
+                        <p>No guided breathing. No ambient soundscapes. No spiritual framing.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Not a racing game</h3>
+                        <p>No leaderboards. No competition. No skill-based progression.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Not a fitness tracker</h3>
+                        <p>No calories. No workout logs. No health metrics dashboard.</p>
+                    </div>
+                </div>
+                <p style="margin-top: 2rem; text-align: center;">
+                    slowfaster is a <span class="highlight">state-driven interactive experience</span>.
+                </p>
+            </div>
+        </section>
+
+        <section>
+            <div class="fade-in" style="text-align: center;">
+                <h2>Coming soon to Apple Watch</h2>
+                <p>
+                    slowfaster is currently in development. Built with SwiftUI, HealthKit, and
+                    real-time heart rate monitoring for watchOS.
+                </p>
+                <div class="platform-badge" style="margin: 2rem auto;">
+                    <svg viewBox="0 0 24 24" fill="var(--neon-cyan)" stroke="none">
+                        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                    </svg>
+                    <span>watchOS 10+</span>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>
+            slowfaster · A biofeedback experiment<br>
+            <a href="https://github.com/DockerDiscordControl/slowfaster-homepage">GitHub</a>
+        </p>
+    </footer>
+
+    <script>
+        // Road Animation Canvas
+        const canvas = document.getElementById('roadCanvas');
+        const ctx = canvas.getContext('2d');
+        const heroContent = document.getElementById('heroContent');
+        const scrollHint = document.getElementById('scrollHint');
+
+        let scrollProgress = 0;
+        let animationFrame;
+        let time = 0;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth * window.devicePixelRatio;
+            canvas.height = window.innerHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Smooth interpolation
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function smoothstep(t) {
+            return t * t * (3 - 2 * t);
+        }
+
+        // Draw the road with perspective
+        function drawRoad() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Background gradient
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+            bgGrad.addColorStop(0, '#0a0a0f');
+            bgGrad.addColorStop(1, '#0f0f18');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // Road parameters based on scroll
+            const curviness = 1 - smoothstep(scrollProgress); // 1 = curvy, 0 = straight
+            const glowIntensity = smoothstep(scrollProgress);
+
+            // Horizon and vanishing point
+            const horizonY = height * 0.35;
+            const vanishX = width / 2;
+
+            // Road segments
+            const segments = 60;
+            const roadPoints = [];
+
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const y = lerp(height + 50, horizonY, Math.pow(t, 1.5));
+
+                // Perspective-based road width
+                const perspectiveScale = 1 - Math.pow(t, 1.2);
+                const roadWidth = lerp(20, width * 0.6, perspectiveScale);
+
+                // Curve offset (diminishes with scroll)
+                const curveOffset = curviness * (
+                    Math.sin(t * 8 + time * 0.5) * 80 * perspectiveScale +
+                    Math.sin(t * 12 + time * 0.3) * 40 * perspectiveScale +
+                    Math.sin(t * 4 + time * 0.7) * 60 * perspectiveScale
+                );
+
+                const x = vanishX + curveOffset;
+                roadPoints.push({ x, y, width: roadWidth });
+            }
+
+            // Draw road surface
+            ctx.beginPath();
+            ctx.moveTo(roadPoints[0].x - roadPoints[0].width / 2, roadPoints[0].y);
+
+            for (let i = 1; i < roadPoints.length; i++) {
+                ctx.lineTo(roadPoints[i].x - roadPoints[i].width / 2, roadPoints[i].y);
+            }
+            for (let i = roadPoints.length - 1; i >= 0; i--) {
+                ctx.lineTo(roadPoints[i].x + roadPoints[i].width / 2, roadPoints[i].y);
+            }
+            ctx.closePath();
+
+            ctx.fillStyle = 'rgba(20, 20, 30, 0.9)';
+            ctx.fill();
+
+            // Draw road edges (neon cyan)
+            const neonCyan = `rgba(0, 230, 255, ${0.4 + glowIntensity * 0.4})`;
+            const glowSize = 2 + glowIntensity * 6;
+
+            ctx.shadowColor = 'rgba(0, 230, 255, 0.5)';
+            ctx.shadowBlur = glowSize * 3;
+            ctx.strokeStyle = neonCyan;
+            ctx.lineWidth = 2;
+
+            // Left edge
+            ctx.beginPath();
+            ctx.moveTo(roadPoints[0].x - roadPoints[0].width / 2, roadPoints[0].y);
+            for (let i = 1; i < roadPoints.length; i++) {
+                ctx.lineTo(roadPoints[i].x - roadPoints[i].width / 2, roadPoints[i].y);
+            }
+            ctx.stroke();
+
+            // Right edge
+            ctx.beginPath();
+            ctx.moveTo(roadPoints[0].x + roadPoints[0].width / 2, roadPoints[0].y);
+            for (let i = 1; i < roadPoints.length; i++) {
+                ctx.lineTo(roadPoints[i].x + roadPoints[i].width / 2, roadPoints[i].y);
+            }
+            ctx.stroke();
+
+            // Center dashes
+            ctx.shadowBlur = glowSize * 2;
+            ctx.setLineDash([15, 25]);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = `rgba(0, 230, 255, ${0.3 + glowIntensity * 0.3})`;
+
+            ctx.beginPath();
+            ctx.moveTo(roadPoints[0].x, roadPoints[0].y);
+            for (let i = 1; i < roadPoints.length; i++) {
+                ctx.lineTo(roadPoints[i].x, roadPoints[i].y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Reset shadow
+            ctx.shadowBlur = 0;
+
+            // Draw car (simple triangle shape at bottom)
+            const carY = height - 80;
+            const carX = width / 2;
+            const carWidth = 30;
+            const carHeight = 50;
+
+            // Car glow
+            ctx.shadowColor = 'rgba(0, 230, 255, 0.8)';
+            ctx.shadowBlur = 20 + glowIntensity * 20;
+
+            // Car body
+            ctx.fillStyle = neonCyan;
+            ctx.beginPath();
+            ctx.moveTo(carX, carY - carHeight);
+            ctx.lineTo(carX - carWidth / 2, carY);
+            ctx.lineTo(carX + carWidth / 2, carY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Tail light (pink/red)
+            ctx.shadowColor = 'rgba(255, 51, 153, 0.8)';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = 'rgba(255, 51, 153, 0.9)';
+            ctx.fillRect(carX - 12, carY - 5, 24, 4);
+
+            ctx.shadowBlur = 0;
+
+            // Speed lines (more visible when calm/straight)
+            if (glowIntensity > 0.3) {
+                const lineCount = Math.floor(glowIntensity * 10);
+                ctx.strokeStyle = `rgba(0, 230, 255, ${glowIntensity * 0.3})`;
+                ctx.lineWidth = 1;
+
+                for (let i = 0; i < lineCount; i++) {
+                    const lineX = Math.random() * width;
+                    const lineY = height * 0.4 + Math.random() * height * 0.5;
+                    const lineLength = 30 + Math.random() * 50;
+
+                    ctx.beginPath();
+                    ctx.moveTo(lineX, lineY);
+                    ctx.lineTo(lineX, lineY + lineLength);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function animate() {
+            time += 0.016;
+            drawRoad();
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        // Scroll handling
+        function handleScroll() {
+            const heroSection = document.querySelector('.hero');
+            const heroRect = heroSection.getBoundingClientRect();
+            const scrollableHeight = heroSection.offsetHeight - window.innerHeight;
+
+            scrollProgress = Math.max(0, Math.min(1, -heroRect.top / scrollableHeight));
+
+            // Show/hide hero content
+            if (scrollProgress > 0.7) {
+                heroContent.classList.add('visible');
+                scrollHint.style.opacity = '0';
+            } else {
+                heroContent.classList.remove('visible');
+                scrollHint.style.opacity = '1';
+            }
+        }
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+
+        // Intersection Observer for fade-in animations
+        const fadeObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            fadeObserver.observe(el);
+        });
+
+        // Start animation
+        animate();
+        handleScroll();
+    </script>
+</body>
+</html>
