@@ -612,26 +612,26 @@
     </footer>
 
     <script>
-        // Road Animation Canvas - matching the actual game aesthetic
+        // Road Animation Canvas - scroll-driven, matching the actual game
         const canvas = document.getElementById('roadCanvas');
         const ctx = canvas.getContext('2d');
         const heroContent = document.getElementById('heroContent');
         const scrollHint = document.getElementById('scrollHint');
 
         let scrollProgress = 0;
-        let animationFrame;
-        let time = 0;
-        let roadOffset = 0;
+        let lastScrollY = 0;
+        let needsRedraw = true;
 
-        // Particles for background
+        // Particles for background - static positions, movement driven by scroll
         const particles = [];
-        const particleCount = 80;
+        const particleCount = 60;
 
         function resizeCanvas() {
             canvas.width = window.innerWidth * window.devicePixelRatio;
             canvas.height = window.innerHeight * window.devicePixelRatio;
             ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
             initParticles();
+            needsRedraw = true;
         }
 
         function initParticles() {
@@ -640,11 +640,10 @@
             const height = canvas.height / window.devicePixelRatio;
             for (let i = 0; i < particleCount; i++) {
                 particles.push({
-                    x: Math.random() * width,
-                    y: Math.random() * height,
-                    length: 3 + Math.random() * 8,
-                    speed: 0.5 + Math.random() * 1.5,
-                    opacity: 0.1 + Math.random() * 0.3
+                    baseX: Math.random() * width * 1.5,
+                    baseY: Math.random() * height * 1.5,
+                    length: 8 + Math.random() * 20,
+                    opacity: 0.15 + Math.random() * 0.25
                 });
             }
         }
@@ -661,16 +660,16 @@
             return t * t * (3 - 2 * t);
         }
 
-        // Generate road path points with smooth curves
-        function generateRoadPath(width, height, curviness, offset) {
+        // Generate road path - curves based on scroll, offset based on scroll
+        function generateRoadPath(width, height, curviness, scrollOffset) {
             const points = [];
-            const segments = 100;
+            const segments = 120;
 
             // Road goes diagonally from bottom-right to top-left
-            const startX = width * 0.75;
-            const startY = height + 50;
-            const endX = width * 0.25;
-            const endY = -50;
+            const startX = width * 0.8;
+            const startY = height * 1.2;
+            const endX = width * 0.2;
+            const endY = height * -0.2;
 
             for (let i = 0; i <= segments; i++) {
                 const t = i / segments;
@@ -679,21 +678,21 @@
                 let x = lerp(startX, endX, t);
                 let y = lerp(startY, endY, t);
 
-                // Add smooth S-curves based on curviness (controlled by scroll)
-                const curveAmp = curviness * 120;
-                const wave1 = Math.sin((t * 2.5 + offset) * Math.PI) * curveAmp;
-                const wave2 = Math.sin((t * 4 + offset * 0.7) * Math.PI) * curveAmp * 0.4;
+                // Smooth S-curves - amplitude controlled by curviness (which is controlled by scroll)
+                // scrollOffset moves the wave pattern along the road
+                const curveAmp = curviness * 100;
+                const wavePhase = scrollOffset * 3; // scroll moves the curves
 
-                // Curves are perpendicular to the road direction
-                const perpX = 0.6; // Perpendicular direction
-                const perpY = 0.4;
+                const wave1 = Math.sin((t * 3 + wavePhase) * Math.PI) * curveAmp;
+                const wave2 = Math.sin((t * 5 + wavePhase * 0.6) * Math.PI) * curveAmp * 0.35;
 
-                x += (wave1 + wave2) * perpX;
-                y += (wave1 + wave2) * perpY * 0.3;
+                // Perpendicular offset to road direction
+                x += (wave1 + wave2) * 0.7;
+                y += (wave1 + wave2) * 0.25;
 
-                // Road width varies with perspective (wider at bottom)
-                const perspectiveScale = 1 - t * 0.7;
-                const roadWidth = 60 * perspectiveScale + 15;
+                // Road width - wider at bottom (near viewer)
+                const perspectiveScale = 1 - t * 0.75;
+                const roadWidth = 70 * perspectiveScale + 20;
 
                 points.push({ x, y, width: roadWidth, t });
             }
@@ -701,15 +700,7 @@
             return points;
         }
 
-        // Find car position on the road
-        function getCarPosition(roadPoints, progress) {
-            // Car is at about 15% from the bottom of the visible road
-            const carT = 0.15;
-            const index = Math.floor(carT * (roadPoints.length - 1));
-            return roadPoints[Math.min(index, roadPoints.length - 1)];
-        }
-
-        // Draw the road - lines only, no fill (like the actual game)
+        // Draw the road
         function drawRoad() {
             const width = canvas.width / window.devicePixelRatio;
             const height = canvas.height / window.devicePixelRatio;
@@ -718,203 +709,217 @@
             ctx.fillStyle = '#0a0a0f';
             ctx.fillRect(0, 0, width, height);
 
-            // Update particles
-            const particleSpeed = lerp(0.5, 2, smoothstep(scrollProgress));
-            particles.forEach(p => {
-                p.y += p.speed * particleSpeed;
-                p.x -= p.speed * particleSpeed * 0.5;
-                if (p.y > height + 20) {
-                    p.y = -20;
-                    p.x = Math.random() * width;
-                }
-                if (p.x < -20) {
-                    p.x = width + 20;
-                }
-            });
+            // Scroll controls everything
+            const easeScroll = smoothstep(scrollProgress);
 
-            // Draw particles (diagonal streaks like in the game)
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            // Particles - position based on scroll
             ctx.lineWidth = 1;
             particles.forEach(p => {
-                const streakLength = p.length * (1 + smoothstep(scrollProgress) * 2);
-                ctx.globalAlpha = p.opacity * (0.5 + smoothstep(scrollProgress) * 0.5);
+                // Particles move diagonally based on scroll
+                const moveAmount = easeScroll * height * 1.5;
+                let px = p.baseX - moveAmount * 0.4;
+                let py = p.baseY + moveAmount;
+
+                // Wrap around
+                while (py > height + 50) { py -= height * 1.8; px += width * 0.4; }
+                while (px < -50) { px += width * 1.5; }
+
+                const streakLength = p.length * (1 + easeScroll * 3);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${p.opacity * (0.5 + easeScroll * 0.5)})`;
                 ctx.beginPath();
-                ctx.moveTo(p.x, p.y);
-                ctx.lineTo(p.x - streakLength * 0.5, p.y - streakLength);
+                ctx.moveTo(px, py);
+                ctx.lineTo(px - streakLength * 0.4, py - streakLength);
                 ctx.stroke();
             });
-            ctx.globalAlpha = 1;
 
-            // Road parameters based on scroll
-            const curviness = 1 - smoothstep(scrollProgress); // 1 = curvy, 0 = straight
+            // Road curviness: 1 at start (curvy), 0 at end (straight)
+            const curviness = 1 - easeScroll;
+
+            // Road offset: scroll moves us along the road
+            const roadOffset = scrollProgress * 2;
 
             // Generate road path
             const roadPoints = generateRoadPath(width, height, curviness, roadOffset);
 
-            // Neon cyan color
-            const glowIntensity = 0.6 + smoothstep(scrollProgress) * 0.4;
+            // Neon cyan - brighter when straighter
+            const glowIntensity = 0.5 + easeScroll * 0.5;
             const cyanColor = `rgba(0, 230, 255, ${glowIntensity})`;
 
-            // Draw road edges (outer lines) - NO FILL
+            // Road edges - lines only
             ctx.shadowColor = 'rgba(0, 230, 255, 0.6)';
-            ctx.shadowBlur = 8 + smoothstep(scrollProgress) * 8;
+            ctx.shadowBlur = 6 + easeScroll * 12;
             ctx.strokeStyle = cyanColor;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2.5;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
 
-            // Left edge
-            ctx.beginPath();
+            // Calculate edge points
+            const leftEdge = [];
+            const rightEdge = [];
+
             for (let i = 0; i < roadPoints.length; i++) {
                 const p = roadPoints[i];
-                const angle = Math.atan2(
-                    (roadPoints[Math.min(i + 1, roadPoints.length - 1)].y - roadPoints[Math.max(i - 1, 0)].y),
-                    (roadPoints[Math.min(i + 1, roadPoints.length - 1)].x - roadPoints[Math.max(i - 1, 0)].x)
-                );
-                const perpAngle = angle + Math.PI / 2;
-                const lx = p.x + Math.cos(perpAngle) * p.width / 2;
-                const ly = p.y + Math.sin(perpAngle) * p.width / 2;
+                const prev = roadPoints[Math.max(i - 1, 0)];
+                const next = roadPoints[Math.min(i + 1, roadPoints.length - 1)];
 
-                if (i === 0) ctx.moveTo(lx, ly);
-                else ctx.lineTo(lx, ly);
+                const angle = Math.atan2(next.y - prev.y, next.x - prev.x);
+                const perpAngle = angle + Math.PI / 2;
+
+                leftEdge.push({
+                    x: p.x + Math.cos(perpAngle) * p.width / 2,
+                    y: p.y + Math.sin(perpAngle) * p.width / 2
+                });
+                rightEdge.push({
+                    x: p.x - Math.cos(perpAngle) * p.width / 2,
+                    y: p.y - Math.sin(perpAngle) * p.width / 2
+                });
+            }
+
+            // Draw left edge
+            ctx.beginPath();
+            ctx.moveTo(leftEdge[0].x, leftEdge[0].y);
+            for (let i = 1; i < leftEdge.length; i++) {
+                ctx.lineTo(leftEdge[i].x, leftEdge[i].y);
             }
             ctx.stroke();
 
-            // Right edge
+            // Draw right edge
             ctx.beginPath();
-            for (let i = 0; i < roadPoints.length; i++) {
-                const p = roadPoints[i];
-                const angle = Math.atan2(
-                    (roadPoints[Math.min(i + 1, roadPoints.length - 1)].y - roadPoints[Math.max(i - 1, 0)].y),
-                    (roadPoints[Math.min(i + 1, roadPoints.length - 1)].x - roadPoints[Math.max(i - 1, 0)].x)
-                );
-                const perpAngle = angle - Math.PI / 2;
-                const rx = p.x + Math.cos(perpAngle) * p.width / 2;
-                const ry = p.y + Math.sin(perpAngle) * p.width / 2;
-
-                if (i === 0) ctx.moveTo(rx, ry);
-                else ctx.lineTo(rx, ry);
+            ctx.moveTo(rightEdge[0].x, rightEdge[0].y);
+            for (let i = 1; i < rightEdge.length; i++) {
+                ctx.lineTo(rightEdge[i].x, rightEdge[i].y);
             }
             ctx.stroke();
 
             // Center dashed line
-            ctx.shadowBlur = 4 + smoothstep(scrollProgress) * 4;
-            ctx.strokeStyle = `rgba(0, 230, 255, ${glowIntensity * 0.6})`;
+            ctx.shadowBlur = 4 + easeScroll * 6;
+            ctx.strokeStyle = `rgba(0, 230, 255, ${glowIntensity * 0.5})`;
             ctx.lineWidth = 1.5;
-            ctx.setLineDash([12, 18]);
+            ctx.setLineDash([15, 25]);
 
             ctx.beginPath();
-            for (let i = 0; i < roadPoints.length; i++) {
-                const p = roadPoints[i];
-                if (i === 0) ctx.moveTo(p.x, p.y);
-                else ctx.lineTo(p.x, p.y);
+            ctx.moveTo(roadPoints[0].x, roadPoints[0].y);
+            for (let i = 1; i < roadPoints.length; i++) {
+                ctx.lineTo(roadPoints[i].x, roadPoints[i].y);
             }
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Reset shadow for car
-            ctx.shadowBlur = 0;
+            // Car position - in upper third of visible road (around t=0.65)
+            const carIndex = Math.floor(0.65 * (roadPoints.length - 1));
+            const carPos = roadPoints[carIndex];
+            const carPrev = roadPoints[Math.max(carIndex - 3, 0)];
+            const carNext = roadPoints[Math.min(carIndex + 3, roadPoints.length - 1)];
+            const carAngle = Math.atan2(carNext.y - carPrev.y, carNext.x - carPrev.x) - Math.PI / 2;
 
-            // Get car position on road
-            const carPos = getCarPosition(roadPoints, 0.15);
-            const nextPos = roadPoints[Math.min(16, roadPoints.length - 1)];
-            const carAngle = Math.atan2(nextPos.y - carPos.y, nextPos.x - carPos.x) - Math.PI / 2;
-
-            // Draw car trail (pink/magenta streaks behind)
             ctx.save();
             ctx.translate(carPos.x, carPos.y);
             ctx.rotate(carAngle);
 
-            // Trail effect
-            const trailLength = 40 + smoothstep(scrollProgress) * 60;
-            const trailGrad = ctx.createLinearGradient(0, 0, 0, trailLength);
-            trailGrad.addColorStop(0, 'rgba(255, 51, 153, 0.8)');
-            trailGrad.addColorStop(0.3, 'rgba(255, 51, 153, 0.4)');
+            // Trail - MUCH longer, based on scroll (speed feeling)
+            const trailLength = 80 + easeScroll * 250;
+
+            ctx.shadowColor = 'rgba(255, 51, 153, 0.9)';
+            ctx.shadowBlur = 20 + easeScroll * 15;
+
+            // Trail gradient
+            const trailGrad = ctx.createLinearGradient(0, 5, 0, trailLength);
+            trailGrad.addColorStop(0, 'rgba(255, 51, 153, 0.95)');
+            trailGrad.addColorStop(0.15, 'rgba(255, 51, 153, 0.7)');
+            trailGrad.addColorStop(0.4, 'rgba(255, 51, 153, 0.3)');
             trailGrad.addColorStop(1, 'rgba(255, 51, 153, 0)');
 
-            ctx.shadowColor = 'rgba(255, 51, 153, 0.8)';
-            ctx.shadowBlur = 15;
-
-            // Left trail
             ctx.fillStyle = trailGrad;
+
+            // Left trail streak
             ctx.beginPath();
-            ctx.moveTo(-6, 8);
-            ctx.lineTo(-4, 8);
-            ctx.lineTo(-3, trailLength);
-            ctx.lineTo(-7, trailLength);
+            ctx.moveTo(-5, 6);
+            ctx.lineTo(-3, 6);
+            ctx.lineTo(-2, trailLength);
+            ctx.lineTo(-6, trailLength);
             ctx.closePath();
             ctx.fill();
 
-            // Right trail
+            // Right trail streak
             ctx.beginPath();
-            ctx.moveTo(6, 8);
-            ctx.lineTo(4, 8);
-            ctx.lineTo(3, trailLength);
-            ctx.lineTo(7, trailLength);
+            ctx.moveTo(5, 6);
+            ctx.lineTo(3, 6);
+            ctx.lineTo(2, trailLength);
+            ctx.lineTo(6, trailLength);
             ctx.closePath();
             ctx.fill();
 
             ctx.shadowBlur = 0;
 
-            // Car body (simple elongated shape)
-            ctx.shadowColor = 'rgba(0, 230, 255, 0.5)';
-            ctx.shadowBlur = 10;
+            // Car body
+            ctx.shadowColor = 'rgba(0, 230, 255, 0.6)';
+            ctx.shadowBlur = 8;
             ctx.fillStyle = '#0a0a0f';
             ctx.strokeStyle = cyanColor;
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = 2;
 
-            // Car outline
             ctx.beginPath();
-            ctx.moveTo(0, -18);
-            ctx.lineTo(-8, 0);
-            ctx.lineTo(-6, 10);
-            ctx.lineTo(6, 10);
-            ctx.lineTo(8, 0);
+            ctx.moveTo(0, -14);
+            ctx.lineTo(-7, -2);
+            ctx.lineTo(-5, 8);
+            ctx.lineTo(5, 8);
+            ctx.lineTo(7, -2);
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
 
-            // Headlights (two white circles)
-            ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
-            ctx.shadowBlur = 12;
+            // Headlights
+            ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
+            ctx.shadowBlur = 15;
             ctx.fillStyle = '#ffffff';
 
-            // Left headlight
             ctx.beginPath();
-            ctx.arc(-4, -12, 3, 0, Math.PI * 2);
+            ctx.arc(-3.5, -9, 2.5, 0, Math.PI * 2);
             ctx.fill();
 
-            // Right headlight
             ctx.beginPath();
-            ctx.arc(4, -12, 3, 0, Math.PI * 2);
+            ctx.arc(3.5, -9, 2.5, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.restore();
         }
 
-        function animate() {
-            time += 0.016;
-            // Road scrolls continuously
-            roadOffset += 0.008 * (1 + smoothstep(scrollProgress) * 2);
-            drawRoad();
-            animationFrame = requestAnimationFrame(animate);
+        // Render loop - only redraws when needed
+        function render() {
+            if (needsRedraw) {
+                drawRoad();
+                needsRedraw = false;
+            }
+            requestAnimationFrame(render);
         }
 
-        // Scroll handling
+        // Scroll handling with throttling via requestAnimationFrame
+        let ticking = false;
+
         function handleScroll() {
-            const heroSection = document.querySelector('.hero');
-            const heroRect = heroSection.getBoundingClientRect();
-            const scrollableHeight = heroSection.offsetHeight - window.innerHeight;
+            lastScrollY = window.scrollY;
 
-            scrollProgress = Math.max(0, Math.min(1, -heroRect.top / scrollableHeight));
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    const heroSection = document.querySelector('.hero');
+                    const heroRect = heroSection.getBoundingClientRect();
+                    const scrollableHeight = heroSection.offsetHeight - window.innerHeight;
 
-            // Show/hide hero content
-            if (scrollProgress > 0.7) {
-                heroContent.classList.add('visible');
-                scrollHint.style.opacity = '0';
-            } else {
-                heroContent.classList.remove('visible');
-                scrollHint.style.opacity = '1';
+                    scrollProgress = Math.max(0, Math.min(1, -heroRect.top / scrollableHeight));
+                    needsRedraw = true;
+
+                    // Show/hide hero content
+                    if (scrollProgress > 0.75) {
+                        heroContent.classList.add('visible');
+                        scrollHint.style.opacity = '0';
+                    } else {
+                        heroContent.classList.remove('visible');
+                        scrollHint.style.opacity = String(1 - scrollProgress);
+                    }
+
+                    ticking = false;
+                });
+                ticking = true;
             }
         }
 
@@ -933,8 +938,8 @@
             fadeObserver.observe(el);
         });
 
-        // Start animation
-        animate();
+        // Start
+        render();
         handleScroll();
     </script>
 </body>
