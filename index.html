@@ -140,17 +140,17 @@
         section {
             max-width: 900px;
             margin: 0 auto;
-            padding: 3rem 2rem;
+            padding: 1.5rem 2rem;
         }
 
         .intro-section {
-            padding-top: 4rem;
+            padding-top: 2rem;
         }
 
         h2 {
             font-size: clamp(1.75rem, 4vw, 2.5rem);
             font-weight: 600;
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
             color: var(--neon-cyan);
             text-shadow: 0 0 30px var(--neon-cyan-glow);
         }
@@ -164,7 +164,7 @@
 
         p {
             color: var(--text-secondary);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
             font-size: 1.1rem;
         }
 
@@ -179,18 +179,18 @@
             font-style: italic;
             color: var(--text-primary);
             text-align: center;
-            padding: 2rem 2rem;
+            padding: 1.5rem 2rem;
             border-left: 3px solid var(--neon-cyan);
             background: linear-gradient(90deg, var(--neon-cyan-glow), transparent);
-            margin: 1.5rem 0;
+            margin: 0.5rem 0;
         }
 
         /* Cards */
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            margin-top: 2rem;
+            gap: 1rem;
+            margin-top: 1rem;
         }
 
         .card {
@@ -231,8 +231,8 @@
             background: var(--bg-card);
             border: 1px solid rgba(0, 230, 255, 0.15);
             border-radius: 12px;
-            padding: 1.5rem 2rem;
-            margin-bottom: 1.5rem;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1rem;
         }
 
         .study-card h4 {
@@ -272,15 +272,15 @@
         /* How it Works */
         .mechanism-list {
             list-style: none;
-            margin: 2rem 0;
+            margin: 1rem 0;
         }
 
         .mechanism-list li {
             display: flex;
             align-items: flex-start;
             gap: 1rem;
-            margin-bottom: 1.5rem;
-            padding: 1rem;
+            margin-bottom: 0.75rem;
+            padding: 0.75rem;
             border-radius: 8px;
             background: rgba(0, 230, 255, 0.02);
         }
@@ -315,11 +315,11 @@
             display: inline-flex;
             align-items: center;
             gap: 0.75rem;
-            padding: 0.75rem 1.5rem;
+            padding: 0.5rem 1.25rem;
             background: var(--bg-card);
             border: 1px solid rgba(0, 230, 255, 0.2);
             border-radius: 50px;
-            margin: 2rem 0;
+            margin: 1rem 0;
         }
 
         .platform-badge svg {
@@ -335,7 +335,7 @@
         /* Footer */
         footer {
             text-align: center;
-            padding: 4rem 2rem;
+            padding: 2rem 2rem;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
@@ -356,7 +356,7 @@
         /* Responsive */
         @media (max-width: 600px) {
             section {
-                padding: 2rem 1.5rem;
+                padding: 1rem 1.25rem;
             }
 
             .card-grid {
@@ -364,7 +364,7 @@
             }
 
             .quote {
-                padding: 1.5rem 1.5rem;
+                padding: 1rem 1.25rem;
             }
         }
 
@@ -594,7 +594,7 @@
                     slowfaster is currently in development. Built with SwiftUI, HealthKit, and
                     real-time heart rate monitoring for watchOS.
                 </p>
-                <div class="platform-badge" style="margin: 2rem auto;">
+                <div class="platform-badge" style="margin: 1rem auto;">
                     <svg viewBox="0 0 24 24" fill="var(--neon-cyan)" stroke="none">
                         <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                     </svg>
