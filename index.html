@@ -612,7 +612,7 @@
     </footer>
 
     <script>
-        // Road Animation Canvas
+        // Road Animation Canvas - matching the actual game aesthetic
         const canvas = document.getElementById('roadCanvas');
         const ctx = canvas.getContext('2d');
         const heroContent = document.getElementById('heroContent');
@@ -621,11 +621,32 @@
         let scrollProgress = 0;
         let animationFrame;
         let time = 0;
+        let roadOffset = 0;
+
+        // Particles for background
+        const particles = [];
+        const particleCount = 80;
 
         function resizeCanvas() {
             canvas.width = window.innerWidth * window.devicePixelRatio;
             canvas.height = window.innerHeight * window.devicePixelRatio;
             ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            initParticles();
+        }
+
+        function initParticles() {
+            particles.length = 0;
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    length: 3 + Math.random() * 8,
+                    speed: 0.5 + Math.random() * 1.5,
+                    opacity: 0.1 + Math.random() * 0.3
+                });
+            }
         }
 
         window.addEventListener('resize', resizeCanvas);
@@ -640,156 +661,241 @@
             return t * t * (3 - 2 * t);
         }
 
-        // Draw the road with perspective
+        // Generate road path points with smooth curves
+        function generateRoadPath(width, height, curviness, offset) {
+            const points = [];
+            const segments = 100;
+
+            // Road goes diagonally from bottom-right to top-left
+            const startX = width * 0.75;
+            const startY = height + 50;
+            const endX = width * 0.25;
+            const endY = -50;
+
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+
+                // Base diagonal path
+                let x = lerp(startX, endX, t);
+                let y = lerp(startY, endY, t);
+
+                // Add smooth S-curves based on curviness (controlled by scroll)
+                const curveAmp = curviness * 120;
+                const wave1 = Math.sin((t * 2.5 + offset) * Math.PI) * curveAmp;
+                const wave2 = Math.sin((t * 4 + offset * 0.7) * Math.PI) * curveAmp * 0.4;
+
+                // Curves are perpendicular to the road direction
+                const perpX = 0.6; // Perpendicular direction
+                const perpY = 0.4;
+
+                x += (wave1 + wave2) * perpX;
+                y += (wave1 + wave2) * perpY * 0.3;
+
+                // Road width varies with perspective (wider at bottom)
+                const perspectiveScale = 1 - t * 0.7;
+                const roadWidth = 60 * perspectiveScale + 15;
+
+                points.push({ x, y, width: roadWidth, t });
+            }
+
+            return points;
+        }
+
+        // Find car position on the road
+        function getCarPosition(roadPoints, progress) {
+            // Car is at about 15% from the bottom of the visible road
+            const carT = 0.15;
+            const index = Math.floor(carT * (roadPoints.length - 1));
+            return roadPoints[Math.min(index, roadPoints.length - 1)];
+        }
+
+        // Draw the road - lines only, no fill (like the actual game)
         function drawRoad() {
             const width = canvas.width / window.devicePixelRatio;
             const height = canvas.height / window.devicePixelRatio;
 
-            ctx.clearRect(0, 0, width, height);
-
-            // Background gradient
-            const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-            bgGrad.addColorStop(0, '#0a0a0f');
-            bgGrad.addColorStop(1, '#0f0f18');
-            ctx.fillStyle = bgGrad;
+            // Clear with dark background
+            ctx.fillStyle = '#0a0a0f';
             ctx.fillRect(0, 0, width, height);
+
+            // Update particles
+            const particleSpeed = lerp(0.5, 2, smoothstep(scrollProgress));
+            particles.forEach(p => {
+                p.y += p.speed * particleSpeed;
+                p.x -= p.speed * particleSpeed * 0.5;
+                if (p.y > height + 20) {
+                    p.y = -20;
+                    p.x = Math.random() * width;
+                }
+                if (p.x < -20) {
+                    p.x = width + 20;
+                }
+            });
+
+            // Draw particles (diagonal streaks like in the game)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+            particles.forEach(p => {
+                const streakLength = p.length * (1 + smoothstep(scrollProgress) * 2);
+                ctx.globalAlpha = p.opacity * (0.5 + smoothstep(scrollProgress) * 0.5);
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x - streakLength * 0.5, p.y - streakLength);
+                ctx.stroke();
+            });
+            ctx.globalAlpha = 1;
 
             // Road parameters based on scroll
             const curviness = 1 - smoothstep(scrollProgress); // 1 = curvy, 0 = straight
-            const glowIntensity = smoothstep(scrollProgress);
 
-            // Horizon and vanishing point
-            const horizonY = height * 0.35;
-            const vanishX = width / 2;
+            // Generate road path
+            const roadPoints = generateRoadPath(width, height, curviness, roadOffset);
 
-            // Road segments
-            const segments = 60;
-            const roadPoints = [];
+            // Neon cyan color
+            const glowIntensity = 0.6 + smoothstep(scrollProgress) * 0.4;
+            const cyanColor = `rgba(0, 230, 255, ${glowIntensity})`;
 
-            for (let i = 0; i <= segments; i++) {
-                const t = i / segments;
-                const y = lerp(height + 50, horizonY, Math.pow(t, 1.5));
-
-                // Perspective-based road width
-                const perspectiveScale = 1 - Math.pow(t, 1.2);
-                const roadWidth = lerp(20, width * 0.6, perspectiveScale);
-
-                // Curve offset (diminishes with scroll)
-                const curveOffset = curviness * (
-                    Math.sin(t * 8 + time * 0.5) * 80 * perspectiveScale +
-                    Math.sin(t * 12 + time * 0.3) * 40 * perspectiveScale +
-                    Math.sin(t * 4 + time * 0.7) * 60 * perspectiveScale
-                );
-
-                const x = vanishX + curveOffset;
-                roadPoints.push({ x, y, width: roadWidth });
-            }
-
-            // Draw road surface
-            ctx.beginPath();
-            ctx.moveTo(roadPoints[0].x - roadPoints[0].width / 2, roadPoints[0].y);
-
-            for (let i = 1; i < roadPoints.length; i++) {
-                ctx.lineTo(roadPoints[i].x - roadPoints[i].width / 2, roadPoints[i].y);
-            }
-            for (let i = roadPoints.length - 1; i >= 0; i--) {
-                ctx.lineTo(roadPoints[i].x + roadPoints[i].width / 2, roadPoints[i].y);
-            }
-            ctx.closePath();
-
-            ctx.fillStyle = 'rgba(20, 20, 30, 0.9)';
-            ctx.fill();
-
-            // Draw road edges (neon cyan)
-            const neonCyan = `rgba(0, 230, 255, ${0.4 + glowIntensity * 0.4})`;
-            const glowSize = 2 + glowIntensity * 6;
-
-            ctx.shadowColor = 'rgba(0, 230, 255, 0.5)';
-            ctx.shadowBlur = glowSize * 3;
-            ctx.strokeStyle = neonCyan;
+            // Draw road edges (outer lines) - NO FILL
+            ctx.shadowColor = 'rgba(0, 230, 255, 0.6)';
+            ctx.shadowBlur = 8 + smoothstep(scrollProgress) * 8;
+            ctx.strokeStyle = cyanColor;
             ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
 
             // Left edge
             ctx.beginPath();
-            ctx.moveTo(roadPoints[0].x - roadPoints[0].width / 2, roadPoints[0].y);
-            for (let i = 1; i < roadPoints.length; i++) {
-                ctx.lineTo(roadPoints[i].x - roadPoints[i].width / 2, roadPoints[i].y);
+            for (let i = 0; i < roadPoints.length; i++) {
+                const p = roadPoints[i];
+                const angle = Math.atan2(
+                    (roadPoints[Math.min(i + 1, roadPoints.length - 1)].y - roadPoints[Math.max(i - 1, 0)].y),
+                    (roadPoints[Math.min(i + 1, roadPoints.length - 1)].x - roadPoints[Math.max(i - 1, 0)].x)
+                );
+                const perpAngle = angle + Math.PI / 2;
+                const lx = p.x + Math.cos(perpAngle) * p.width / 2;
+                const ly = p.y + Math.sin(perpAngle) * p.width / 2;
+
+                if (i === 0) ctx.moveTo(lx, ly);
+                else ctx.lineTo(lx, ly);
             }
             ctx.stroke();
 
             // Right edge
             ctx.beginPath();
-            ctx.moveTo(roadPoints[0].x + roadPoints[0].width / 2, roadPoints[0].y);
-            for (let i = 1; i < roadPoints.length; i++) {
-                ctx.lineTo(roadPoints[i].x + roadPoints[i].width / 2, roadPoints[i].y);
+            for (let i = 0; i < roadPoints.length; i++) {
+                const p = roadPoints[i];
+                const angle = Math.atan2(
+                    (roadPoints[Math.min(i + 1, roadPoints.length - 1)].y - roadPoints[Math.max(i - 1, 0)].y),
+                    (roadPoints[Math.min(i + 1, roadPoints.length - 1)].x - roadPoints[Math.max(i - 1, 0)].x)
+                );
+                const perpAngle = angle - Math.PI / 2;
+                const rx = p.x + Math.cos(perpAngle) * p.width / 2;
+                const ry = p.y + Math.sin(perpAngle) * p.width / 2;
+
+                if (i === 0) ctx.moveTo(rx, ry);
+                else ctx.lineTo(rx, ry);
             }
             ctx.stroke();
 
-            // Center dashes
-            ctx.shadowBlur = glowSize * 2;
-            ctx.setLineDash([15, 25]);
+            // Center dashed line
+            ctx.shadowBlur = 4 + smoothstep(scrollProgress) * 4;
+            ctx.strokeStyle = `rgba(0, 230, 255, ${glowIntensity * 0.6})`;
             ctx.lineWidth = 1.5;
-            ctx.strokeStyle = `rgba(0, 230, 255, ${0.3 + glowIntensity * 0.3})`;
+            ctx.setLineDash([12, 18]);
 
             ctx.beginPath();
-            ctx.moveTo(roadPoints[0].x, roadPoints[0].y);
-            for (let i = 1; i < roadPoints.length; i++) {
-                ctx.lineTo(roadPoints[i].x, roadPoints[i].y);
+            for (let i = 0; i < roadPoints.length; i++) {
+                const p = roadPoints[i];
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
             }
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Reset shadow
+            // Reset shadow for car
             ctx.shadowBlur = 0;
 
-            // Draw car (simple triangle shape at bottom)
-            const carY = height - 80;
-            const carX = width / 2;
-            const carWidth = 30;
-            const carHeight = 50;
+            // Get car position on road
+            const carPos = getCarPosition(roadPoints, 0.15);
+            const nextPos = roadPoints[Math.min(16, roadPoints.length - 1)];
+            const carAngle = Math.atan2(nextPos.y - carPos.y, nextPos.x - carPos.x) - Math.PI / 2;
 
-            // Car glow
-            ctx.shadowColor = 'rgba(0, 230, 255, 0.8)';
-            ctx.shadowBlur = 20 + glowIntensity * 20;
+            // Draw car trail (pink/magenta streaks behind)
+            ctx.save();
+            ctx.translate(carPos.x, carPos.y);
+            ctx.rotate(carAngle);
 
-            // Car body
-            ctx.fillStyle = neonCyan;
+            // Trail effect
+            const trailLength = 40 + smoothstep(scrollProgress) * 60;
+            const trailGrad = ctx.createLinearGradient(0, 0, 0, trailLength);
+            trailGrad.addColorStop(0, 'rgba(255, 51, 153, 0.8)');
+            trailGrad.addColorStop(0.3, 'rgba(255, 51, 153, 0.4)');
+            trailGrad.addColorStop(1, 'rgba(255, 51, 153, 0)');
+
+            ctx.shadowColor = 'rgba(255, 51, 153, 0.8)';
+            ctx.shadowBlur = 15;
+
+            // Left trail
+            ctx.fillStyle = trailGrad;
             ctx.beginPath();
-            ctx.moveTo(carX, carY - carHeight);
-            ctx.lineTo(carX - carWidth / 2, carY);
-            ctx.lineTo(carX + carWidth / 2, carY);
+            ctx.moveTo(-6, 8);
+            ctx.lineTo(-4, 8);
+            ctx.lineTo(-3, trailLength);
+            ctx.lineTo(-7, trailLength);
             ctx.closePath();
             ctx.fill();
 
-            // Tail light (pink/red)
-            ctx.shadowColor = 'rgba(255, 51, 153, 0.8)';
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = 'rgba(255, 51, 153, 0.9)';
-            ctx.fillRect(carX - 12, carY - 5, 24, 4);
+            // Right trail
+            ctx.beginPath();
+            ctx.moveTo(6, 8);
+            ctx.lineTo(4, 8);
+            ctx.lineTo(3, trailLength);
+            ctx.lineTo(7, trailLength);
+            ctx.closePath();
+            ctx.fill();
 
             ctx.shadowBlur = 0;
 
-            // Speed lines (more visible when calm/straight)
-            if (glowIntensity > 0.3) {
-                const lineCount = Math.floor(glowIntensity * 10);
-                ctx.strokeStyle = `rgba(0, 230, 255, ${glowIntensity * 0.3})`;
-                ctx.lineWidth = 1;
+            // Car body (simple elongated shape)
+            ctx.shadowColor = 'rgba(0, 230, 255, 0.5)';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#0a0a0f';
+            ctx.strokeStyle = cyanColor;
+            ctx.lineWidth = 1.5;
 
-                for (let i = 0; i < lineCount; i++) {
-                    const lineX = Math.random() * width;
-                    const lineY = height * 0.4 + Math.random() * height * 0.5;
-                    const lineLength = 30 + Math.random() * 50;
+            // Car outline
+            ctx.beginPath();
+            ctx.moveTo(0, -18);
+            ctx.lineTo(-8, 0);
+            ctx.lineTo(-6, 10);
+            ctx.lineTo(6, 10);
+            ctx.lineTo(8, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
 
-                    ctx.beginPath();
-                    ctx.moveTo(lineX, lineY);
-                    ctx.lineTo(lineX, lineY + lineLength);
-                    ctx.stroke();
-                }
-            }
+            // Headlights (two white circles)
+            ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = '#ffffff';
+
+            // Left headlight
+            ctx.beginPath();
+            ctx.arc(-4, -12, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Right headlight
+            ctx.beginPath();
+            ctx.arc(4, -12, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
         }
 
         function animate() {
             time += 0.016;
+            // Road scrolls continuously
+            roadOffset += 0.008 * (1 + smoothstep(scrollProgress) * 2);
             drawRoad();
             animationFrame = requestAnimationFrame(animate);
         }
