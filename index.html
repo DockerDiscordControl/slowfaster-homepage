@@ -946,17 +946,6 @@
             // This is actually CORRECT if we just draw the same trail relative to the car!
 
             const trailLen = 150 + scrollProgress * 200;
-            // CHANGED: Gradient needs to fade out away from car.
-            // From 0 (Car) to trailLen (Far).
-            const trailGrad = ctx.createLinearGradient(0, 20, 0, 20 + trailLen);
-            trailGrad.addColorStop(0, 'rgba(255, 51, 153, 0.8)');
-            trailGrad.addColorStop(1, 'rgba(255, 51, 153, 0)');
-
-            ctx.fillStyle = trailGrad;
-            // Left Trail
-            ctx.fillRect(-6, 20, 3, trailLen);
-            // Right Trail
-            ctx.fillRect(4, 20, 3, trailLen);
 
             // Car Body
             ctx.fillStyle = '#ffffff';
@@ -992,6 +981,17 @@
             ctx.arc(-5, 10, 2, 0, Math.PI * 2);
             ctx.arc(5, 10, 2, 0, Math.PI * 2);
             ctx.fill();
+
+            // Light trails (drawn after car, starting from taillights)
+            ctx.shadowBlur = 0;
+            const trailGrad = ctx.createLinearGradient(0, 12, 0, 12 + trailLen);
+            trailGrad.addColorStop(0, 'rgba(255, 51, 153, 0.8)');
+            trailGrad.addColorStop(1, 'rgba(255, 51, 153, 0)');
+            ctx.fillStyle = trailGrad;
+            // Left Trail (centered on taillight at x=-5)
+            ctx.fillRect(-6.5, 12, 3, trailLen);
+            // Right Trail (centered on taillight at x=5)
+            ctx.fillRect(3.5, 12, 3, trailLen);
 
             ctx.restore();
         }
